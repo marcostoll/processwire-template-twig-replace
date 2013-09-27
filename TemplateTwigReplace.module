@@ -1,0 +1,264 @@
+<?php
+
+/**
+ * Class definition of ProcessWire module TemplateTwigReplace
+ *
+ * See README.md for usage instructions.
+ *
+ * @author Marco Stoll <marco.stoll@neuwaerts.de>
+ * @version 1.0.2
+ * @copyright Copyright (c) 2013, neuwaerts GmbH
+ * @filesource
+ * @see https://github.com/marcostoll/processwire-template-twig-replace
+ * @see http://www.neuwaerts.de
+ * @see http://www.processwire.com
+ */
+
+/**
+ * Class TemplateTwigReplace
+ */
+class TemplateTwigReplace extends WireData implements Module, ConfigurableModule {
+
+    /**
+     * @field array Default config values
+     */
+    protected static $defaults = array(
+        'fuel'              => 'page, pages, config, session, user, input',
+        'cacheEnable'       => false,
+        'cacheDir'          => 'twig/',
+        'cacheAutoReload'   => true,
+        'autoEscape'        => false
+    );
+
+    /**
+     * @field Twig_Environment The Twig render engine
+     */
+    protected $twig = null;
+
+    /**
+     * Retrieves module meta data
+     *
+     * Implementation of the Module interface
+     *
+     * @return array
+     * @see http://processwire.com/apigen/class-Module.html
+     */
+	public static function getModuleInfo() {
+
+		return array(
+
+			// The module'ss title, typically a little more descriptive than the class name
+			'title' => 'Template Twig Replace',
+
+			// version: major, minor, revision, i.e. 100 = 1.0.0
+			'version' => 101,
+
+			// summary is brief description of what this module is
+			'summary' => 'Use Twig template engine instead of plain-php templates',
+			
+			// Optional URL to more information about the module
+			'href' => 'https://github.com/marcostoll/processwire-template-twig-replace',
+
+			// singular=true: indicates that only one instance of the module is allowed.
+			// This is usually what you want for modules that attach hooks. 
+			'singular' => true, 
+
+			// autoload=true: indicates the module should be started with ProcessWire.
+			// This is necessary for any modules that attach runtime hooks, otherwise those
+			// hooks won't get attached unless some other code calls the module on it's own.
+			// Note that autoload modules are almost always also 'singular' (seen above).
+			'autoload' => true, 
+		);
+	}
+
+    /**
+     * Retrieves the list of config input fields
+     *
+     * Implementation of the ConfigurableModule interface
+     *
+     * @param array $data The config data
+     * @return InputfieldWrapper
+     * @see http://processwire.com/apigen/class-ConfigurableModule.html
+     */
+    public static function getModuleConfigInputfields(array $data) {
+
+        $fields = new InputfieldWrapper();
+        $modules = wire('modules');
+
+        // default config values
+        $data = array_merge(self::$defaults, $data);
+
+        // fuel
+        $field = $modules->get("InputfieldText");
+        $field->name = 'fuel';
+        $field->label = "Auto-import fuel";
+        $field->description = "List ProcessWire fuel keys to automatically import as Twig variables" . PHP_EOL .
+                              "Use comma (,) or semicolon (;) as separator - with or without spaces" . PHP_EOL .
+                              "See http://processwire.com/api/variables/ for possible keys";
+        $field->size = 45;
+        $field->value = $data['fuel'];
+        $fields->append($field);
+
+        // cache enabled field
+        $field = $modules->get("InputfieldCheckbox");
+        $field->name = "cacheEnable";
+        $field->label = "Enable Twig Cache";
+        $field->description = "Enable Twig cache in production mode only" . PHP_EOL .
+                              "Caches compiled templates, not page rendering output.";
+        $field->value = 1;
+        $field->attr('checked', empty($data['cacheEnable']) ? '' : 'checked');
+        $fields->add($field);
+
+        // cache directory name
+        $field = $modules->get("InputfieldText");
+        $field->name = 'cacheDir';
+        $field->label = "Twig Cache Directory";
+        $field->description = "Directory name for Twig cache (relative to wire('config')->paths->cache)";
+        $field->size = 30;
+        $field->value = $data['cacheDir'];
+        $fields->append($field);
+
+        // cache auto reload
+        $field = $modules->get("InputfieldCheckbox");
+        $field->name = "cacheAutoReload";
+        $field->label = "Auto Reload Twig Cache";
+        $field->description = "Reload Twig cache on template modification";
+        $field->value = 1;
+        $field->attr('checked', empty($data['cacheAutoReload']) ? '' : 'checked');
+        $fields->add($field);
+
+        // auto escape variables
+        $field = $modules->get("InputfieldSelect");
+        $field->name = "autoEscape";
+        $field->label = "Auto Escape Twig variables";
+        $field->description = "Automatic escape strategy for output variable content in Twig templates";
+        $field->options = array('' => '<none>', 'html' => 'html', 'html_attr' => 'html_attr');
+        $field->value = $data['autoEscape'];
+        $fields->add($field);
+
+        return $fields;
+    }
+
+    /**
+     * Initialize the module
+     *
+     * Implementation of the Module interface
+     *
+     * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
+     * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
+     *
+     * @see http://processwire.com/apigen/class-Module.html
+     */
+	public function init() {
+
+        // register Twig autoloader
+        if (!class_exists('Twig_autoloader')) {
+            require_once wire('config')->paths->TemplateTwigReplace . 'Twig-1.13.2/Twig/Autoloader.php';
+            Twig_Autoloader::register();
+        }
+
+        // replace default page rendering by hooked method
+        $this->addHookBefore('PageRender::renderPage', $this, 'renderPageWithTwig');
+
+        // replace default chunk rendering by hooked method
+        $this->addHookBefore('nw\ChunkRenderer::render', $this, 'renderChunkWithTwig');
+	}
+
+	/**
+	 * Hook callback for PageRender::renderPage
+     *
+     * Replaces default page rendering entirely.
+     *
+     * @param HookEvent $event The hook event
+	 */
+	public function renderPageWithTwig(HookEvent $event) {
+
+        $parentEvent = $event->arguments(0); // grab event provided to PageRender::renderPage
+
+        // don't mess with admin templates
+        $page = $parentEvent->object;
+        if ($page->template == 'admin') return;
+
+        // forced replacing of default page rendering behaviour
+        $event->replace = true;
+
+        // allow page fields to be accessed directly in Twig
+        // e.g. {{ page.myfield }} instead of {{ page.get('myfield') }}
+        Page::$issetHas = true;
+        //wire('config')->disableUnknownMethodException = false;
+
+        // render template
+        $twigVars = $this->collectVariables($page->output);
+        $output = $this->getTwig()->render($page->template->name . '.' . wire('config')->templateExtension, $twigVars);
+
+        // manually set return of original event
+        $parentEvent->return = $output;
+	}
+
+    /**
+     * Hook callback for ChunkController::render
+     *
+     * Kicks in if module Template Data Providers is installed.
+     * Replaces default chunk rendering entirely.
+     *
+     * @param HookEvent $event The hook event
+     * @see https://github.com/marcostoll/processwire-template-data-providers
+     */
+    public function renderChunkWithTwig(HookEvent $event) {
+
+        $chunkController = $event->arguments(0);
+
+        // forced replacing of default page rendering behaviour
+        $event->replace = true;
+
+        // render template
+        $twigVars = $this->collectVariables($chunkController);
+        $output = $this->getTwig()->render($chunkController->getChunk(), $twigVars);
+
+        // manually set return of original event
+        $event->return = $output;
+    }
+
+    /**
+     * Gather template variables from wire fuel and given $dataProvider
+     *
+     * Module config setting 'fuel' defines, which part of the wire fuel will be imported.
+     *
+     * @param WireData $dataProvider
+     * @return array
+     */
+    protected function collectVariables(WireData $dataProvider) {
+
+        $variables = array();
+        $fuel = preg_split('/\s*[,;]\s*/', $this->data['fuel'], - 1, PREG_SPLIT_NO_EMPTY);
+        foreach ($fuel as $key) {
+            $variables[$key] = wire($key);
+        }
+
+        $variables = array_merge($variables, $dataProvider->getArray());
+
+        return $variables;
+    }
+
+    /**
+     * Creates the twig render engine if necessary
+     *
+     * @return Twig_Environment
+     */
+    protected function getTwig() {
+
+        if (!is_null($this->twig)) return $this->twig;
+
+        $cache = $this->data['cacheEnable'] ? wire('config')->paths->cache . $this->data['cacheDir'] : false;
+        $loader = new Twig_Loader_Filesystem(wire('config')->paths->templates);
+        $options = array(
+            'cache'         => $cache,
+            'auto_reload'   => (boolean)$this->data['cacheAutoReload'],
+            'autoescape'    => $this->data['autoEscape']
+        );
+
+        $this->twig = new Twig_Environment($loader, $options);
+
+        return $this->twig;
+    }
+}
