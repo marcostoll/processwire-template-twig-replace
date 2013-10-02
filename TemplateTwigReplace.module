@@ -6,7 +6,7 @@
  * See README.md for usage instructions.
  *
  * @author Marco Stoll <marco.stoll@neuwaerts.de>
- * @version 1.0.2
+ * @version 1.0.3
  * @copyright Copyright (c) 2013, neuwaerts GmbH
  * @filesource
  * @see https://github.com/marcostoll/processwire-template-twig-replace
@@ -164,14 +164,15 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $this->addHookBefore('nw\ChunkRenderer::render', $this, 'renderChunkWithTwig');
 	}
 
-	/**
-	 * Hook callback for PageRender::renderPage
+    /**
+     * Hook callback for PageRender::renderPage
      *
      * Replaces default page rendering entirely.
      *
      * @param HookEvent $event The hook event
-	 */
-	public function renderPageWithTwig(HookEvent $event) {
+     * @throws WirePermissionException Page is not currently viewable.
+     */
+    public function renderPageWithTwig(HookEvent $event) {
 
         $parentEvent = $event->arguments(0); // grab event provided to PageRender::renderPage
 
@@ -179,21 +180,49 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $page = $parentEvent->object;
         if ($page->template == 'admin') return;
 
+        // double check page's status
+        // taken from PageRender::__render()
+        if ($page->status >= Page::statusUnpublished && !$page->viewable()) {
+            throw new WirePermissionException('Page \'' . $page->url . '\' is not currently viewable.');
+        }
+
         // forced replacing of default page rendering behaviour
         $event->replace = true;
+
+        // look for cached data
+        // taken from PageRender::__render()
+        $options = count($parentEvent->arguments) ? $parentEvent->arguments[0] : array();
+        $defaultOptions = array(
+            'forceBuildCache' => false,
+        );
+        $options = array_merge($defaultOptions, $options);
+
+        $cacheAllowed = wire('modules')->get('PageRender')->isCacheAllowed($page);
+        $cacheFile = null;
+
+        if ($cacheAllowed) {
+            $cacheFile = wire('modules')->get('PageRender')->getCacheFile($page);
+            if(!$options['forceBuildCache'] && ($data = $cacheFile->get()) !== false) {
+                $parentEvent->return = $data;
+                return;
+            }
+        }
 
         // allow page fields to be accessed directly in Twig
         // e.g. {{ page.myfield }} instead of {{ page.get('myfield') }}
         Page::$issetHas = true;
-        //wire('config')->disableUnknownMethodException = false;
 
         // render template
         $twigVars = $this->collectVariables($page->output);
         $output = $this->getTwig()->render($page->template->name . '.' . wire('config')->templateExtension, $twigVars);
 
+        // cache output if possible
+        // taken from PageRender::__render()
+        if (!empty($output) && $cacheAllowed && !is_null($cacheFile)) $cacheFile->save($output);
+
         // manually set return of original event
         $parentEvent->return = $output;
-	}
+    }
 
     /**
      * Hook callback for ChunkController::render
