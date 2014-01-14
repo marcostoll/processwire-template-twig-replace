@@ -132,7 +132,7 @@ To do this the module offers a public method `getTwig()` that returns the `Twig_
 Use the following code:
 
 	// retrieve the Twig_Environment instance
-	$twig = wire('modules')->get('templateTwigReplace')->getTwig();
+	$twig = wire('modules')->get('TemplateTwigReplace')->getTwig();
 	
 	// manipulate the twig environment
 	// example code taken from http://twig.sensiolabs.org/doc/advanced.html#filters
