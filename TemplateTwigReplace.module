@@ -6,7 +6,7 @@
  * See README.md for usage instructions.
  *
  * @author Marco Stoll <marco.stoll@neuwaerts.de>
- * @version 1.0.3
+ * @version 1.0.4
  * @copyright Copyright (c) 2013, neuwaerts GmbH
  * @filesource
  * @see https://github.com/marcostoll/processwire-template-twig-replace
@@ -51,7 +51,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
 			'title' => 'Template Twig Replace',
 
 			// version: major, minor, revision, i.e. 100 = 1.0.0
-			'version' => 101,
+			'version' => 104,
 
 			// summary is brief description of what this module is
 			'summary' => 'Use Twig template engine instead of plain-php templates',
@@ -274,7 +274,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      *
      * @return Twig_Environment
      */
-    protected function getTwig() {
+    public function getTwig() {
 
         if (!is_null($this->twig)) return $this->twig;
 

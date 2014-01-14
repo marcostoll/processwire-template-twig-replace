@@ -124,6 +124,23 @@ ProcessWire defines the default `php`file extensions for templates in its core c
 **Attention**:  
 Be sure to remane the default admin template from `site/templates/admin.php` to `site/templates/admin.twig`! Otherwise your ProcessWire backend won't work if you've change the template extension option.
 
+## Accessing the twig environment from outside the module ##
+
+There are a couple of reasons to access the twig environment from outside the module (e.g. to register custom filters).
+
+To do this the module offers a public method `getTwig()` that returns the `Twig_Environment` instance. The module itself is defined as autoloading, so it should be accessible via the modules registry at all times. The Twig autoloader will be registered as well.  
+Use the following code:
+
+	// retrieve the Twig_Environment instance
+	$twig = wire('modules')->get('templateTwigReplace')->getTwig();
+	
+	// manipulate the twig environment
+	// example code taken from http://twig.sensiolabs.org/doc/advanced.html#filters
+	$filter = new Twig_SimpleFilter('rot13', function ($string) {
+	    return str_rot13($string);
+	}); 
+	$twig->addFIlter($filter);
+
 ## Honorable mentions ##
 
 The templates was inspired by the **[Template Twig](http://modules.processwire.com/modules/template-twig/)** module by **[porl](http://processwire.com/talk/user/575-porl/)**.  
