@@ -44,7 +44,8 @@ Your directory structure should look like this:
 site/  
 |-> modules/  
 |--|-> TemplateTwigReplace  
-|--|--|-> Twig-1.13.2/  
+|--|--|-> Twig-1.15.0/  
+|--|--|--|-> Twig/  
 |--|--|-> README.md  
 |--|--|-> TemplateTwigReplace.module  
  
@@ -75,7 +76,7 @@ Options 2-5 will be passed as [environment options](http://twig.sensiolabs.org/d
 
 ## Dependancies ##
 
-The **Template Twig Replace** module uses and depends on the [Twig libraries](http://twig.sensiolabs.org/). The module will currently be shipped with Twig v1.13.2 which can also be retrieved [here](http://twig.sensiolabs.org/doc/intro.html#installation).
+The **Template Twig Replace** module uses and depends on the [Twig libraries](http://twig.sensiolabs.org/). The module will currently be shipped with Twig v1.15.0 which can also be retrieved [here](http://twig.sensiolabs.org/doc/intro.html#installation).
 
 Future versions of the **Template Twig Replace** module may use newer versions of Twig but will allways be deployed with all necessary files included.
 
