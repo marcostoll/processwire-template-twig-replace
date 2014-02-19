@@ -283,10 +283,12 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $options = array(
             'cache'         => $cache,
             'auto_reload'   => (boolean)$this->data['cacheAutoReload'],
-            'autoescape'    => $this->data['autoEscape']
+            'autoescape'    => $this->data['autoEscape'],
+            'debug'         => wire('config')->debug
         );
 
         $this->twig = new Twig_Environment($loader, $options);
+        $this->twig->addExtension(new Twig_Extension_Debug());
 
         return $this->twig;
     }
