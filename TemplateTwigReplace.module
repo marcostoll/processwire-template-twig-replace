@@ -9,6 +9,7 @@
  * @author Tabea David <td@kf-interactive.com>
  * @version 1.0.6
  * @copyright Copyright (c) 2014, neuwaerts GmbH
+ * @license MIT http://opensource.org/licenses/MIT
  * @filesource
  * @see https://github.com/marcostoll/processwire-template-twig-replace
  * @see http://www.neuwaerts.de
