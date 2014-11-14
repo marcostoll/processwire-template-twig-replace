@@ -59,6 +59,9 @@ The **Template Twig Replace** module offers a small set of configuration options
 List the names of the magic ProcessWire fuel variables (page, pages, config, session, input, user).  
 See [ProcessWire API Variables](http://processwire.com/api/variables/) for further details.  
 
+2. Don't render these templates with twig
+A list of templates (i.e admin or Formbuilder templates) that shouldn't be rendered with twig.  
+
 2. Enable Twig Cache  
 Activate the cache option for storing compiled Twig templates.  
 Speeds up your template rendering. Maybe deactivated when in developing mode.  
