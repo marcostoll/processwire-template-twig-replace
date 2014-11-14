@@ -146,3 +146,8 @@ Use the following code:
 
 The templates was inspired by the **[Template Twig](http://modules.processwire.com/modules/template-twig/)** module by **[porl](http://processwire.com/talk/user/575-porl/)**.  
 Find forum support [here](http://processwire.com/talk/topic/1421-twig/). 
+
+
+## License
+
+This module is released under the MIT License. See [LICENSE.txt]LICENSE.txt). 
