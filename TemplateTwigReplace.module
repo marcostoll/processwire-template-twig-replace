@@ -20,351 +20,351 @@
  */
 class TemplateTwigReplace extends WireData implements Module, ConfigurableModule {
 
-    /**
-     * @field array Default config values
-     */
-    protected static $defaults = array(
-      'fuel'              => 'page, pages, config, session, user, input',
-      'cacheEnable'       => false,
-      'cacheDir'          => 'twig/',
-      'cacheAutoReload'   => true,
-      'autoEscape'        => false
-    );
+	/**
+	 * @field array Default config values
+	 */
+	protected static $defaults = array(
+		'fuel'              => 'page, pages, config, session, user, input',
+		'cacheEnable'       => false,
+		'cacheDir'          => 'twig/',
+		'cacheAutoReload'   => true,
+		'autoEscape'        => false
+		);
 
-    /**
-     * @field Twig_Environment The Twig render engine
-     */
-    protected $twig = null;
+	/**
+	 * @field Twig_Environment The Twig render engine
+	 */
+	protected $twig = null;
 
-    /**
-     * Retrieves module meta data
-     *
-     * Implementation of the Module interface
-     *
-     * @return array
-     * @see http://processwire.com/apigen/class-Module.html
-     */
-    public static function getModuleInfo() {
-      return array(
-        // The module'ss title, typically a little more descriptive than the class name
-        'title' => 'Template Twig Replace',
+	/**
+	 * Retrieves module meta data
+	 *
+	 * Implementation of the Module interface
+	 *
+	 * @return array
+	 * @see http://processwire.com/apigen/class-Module.html
+	 */
+	public static function getModuleInfo() {
+		return array(
+			// The module'ss title, typically a little more descriptive than the class name
+			'title' => 'Template Twig Replace',
 
-        // version: major, minor, revision, i.e. 100 = 1.0.0
-        'version' => 106,
+			// version: major, minor, revision, i.e. 100 = 1.0.0
+			'version' => 106,
 
-        // summary is brief description of what this module is
-        'summary' => 'Use Twig template engine instead of plain-php templates',
+			// summary is brief description of what this module is
+			'summary' => 'Use Twig template engine instead of plain-php templates',
 
-        // Optional URL to more information about the module
-        'href' => 'https://github.com/marcostoll/processwire-template-twig-replace',
+			// Optional URL to more information about the module
+			'href' => 'https://github.com/marcostoll/processwire-template-twig-replace',
 
-        // singular=true: indicates that only one instance of the module is allowed.
-        // This is usually what you want for modules that attach hooks.
-        'singular' => true,
+			// singular=true: indicates that only one instance of the module is allowed.
+			// This is usually what you want for modules that attach hooks.
+			'singular' => true,
 
-        // autoload=true: indicates the module should be started with ProcessWire.
-        // This is necessary for any modules that attach runtime hooks, otherwise those
-        // hooks won't get attached unless some other code calls the module on it's own.
-        // Note that autoload modules are almost always also 'singular' (seen above).
-        'autoload' => true,
-      );
-    }
-
-    /**
-     * Retrieves the list of config input fields
-     *
-     * Implementation of the ConfigurableModule interface
-     *
-     * @param array $data The config data
-     * @return InputfieldWrapper
-     * @see http://processwire.com/apigen/class-ConfigurableModule.html
-     */
-    public static function getModuleConfigInputfields(array $data) {
-      $fields = new InputfieldWrapper();
-      $modules = wire('modules');
-
-      // default config values
-      $data = array_merge(self::$defaults, $data);
-
-      // fuel
-      $field = $modules->get("InputfieldText");
-      $field->name = 'fuel';
-      $field->label = "Auto-import fuel";
-      $field->description = "List ProcessWire fuel keys to automatically import as Twig variables" . PHP_EOL .
-                            "Use comma (,) or semicolon (;) as separator - with or without spaces" . PHP_EOL .
-                            "See http://processwire.com/api/variables/ for possible keys";
-      $field->size = 45;
-      $field->value = $data['fuel'];
-      $fields->append($field);
-
-      // cache enabled field
-      $field = $modules->get("InputfieldCheckbox");
-      $field->name = "cacheEnable";
-      $field->label = "Enable Twig Cache";
-      $field->description = "Enable Twig cache in production mode only" . PHP_EOL .
-                            "Caches compiled templates, not page rendering output.";
-      $field->value = 1;
-      $field->attr('checked', empty($data['cacheEnable']) ? '' : 'checked');
-      $fields->add($field);
-
-      // cache directory name
-      $field = $modules->get("InputfieldText");
-      $field->name = 'cacheDir';
-      $field->label = "Twig Cache Directory";
-      $field->description = "Directory name for Twig cache (relative to wire('config')->paths->cache)";
-      $field->size = 30;
-      $field->value = $data['cacheDir'];
-      $fields->append($field);
-
-      // cache auto reload
-      $field = $modules->get("InputfieldCheckbox");
-      $field->name = "cacheAutoReload";
-      $field->label = "Auto Reload Twig Cache";
-      $field->description = "Reload Twig cache on template modification";
-      $field->value = 1;
-      $field->attr('checked', empty($data['cacheAutoReload']) ? '' : 'checked');
-      $fields->add($field);
-
-      // auto escape variables
-      $field = $modules->get("InputfieldSelect");
-      $field->name = "autoEscape";
-      $field->label = "Auto Escape Twig variables";
-      $field->description = "Automatic escape strategy for output variable content in Twig templates";
-      $field->options = array('' => '<none>', 'html' => 'html', 'html_attr' => 'html_attr');
-      $field->value = $data['autoEscape'];
-      $fields->add($field);
-
-      return $fields;
-    }
-
-    /**
-     * Initialize the module
-     *
-     * Implementation of the Module interface
-     *
-     * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
-     * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
-     *
-     * @see http://processwire.com/apigen/class-Module.html
-     */
-	public function init() {
-
-        // register Twig autoloader
-        if (!class_exists('Twig_autoloader')) {
-            require_once wire('config')->paths->TemplateTwigReplace . 'Twig-1.15.0/Twig/Autoloader.php';
-            Twig_Autoloader::register();
-        }
-
-        // replace default page rendering by hooked method
-        $this->addHookBefore('PageRender::renderPage', $this, 'renderPageWithTwig');
-
-        // replace default chunk rendering by hooked method
-        $this->addHookBefore('nw\ChunkRenderer::render', $this, 'renderChunkWithTwig');
+			// autoload=true: indicates the module should be started with ProcessWire.
+			// This is necessary for any modules that attach runtime hooks, otherwise those
+			// hooks won't get attached unless some other code calls the module on it's own.
+			// Note that autoload modules are almost always also 'singular' (seen above).
+			'autoload' => true,
+		);
 	}
 
-    /**
-     * Hook callback for PageRender::renderPage
-     *
-     * Replaces default page rendering entirely.
-     *
-     * @param HookEvent $event The hook event
-     * @throws WirePermissionException Page is not currently viewable.
-     */
-    public function renderPageWithTwig(HookEvent $event) {
-      $parentEvent = $event->arguments(0); // grab event provided to PageRender::renderPage
+	/**
+	 * Retrieves the list of config input fields
+	 *
+	 * Implementation of the ConfigurableModule interface
+	 *
+	 * @param array $data The config data
+	 * @return InputfieldWrapper
+	 * @see http://processwire.com/apigen/class-ConfigurableModule.html
+	 */
+	public static function getModuleConfigInputfields(array $data) {
+		$fields = new InputfieldWrapper();
+		$modules = wire('modules');
 
-      // don't mess with admin templates
-      $page = $parentEvent->object;
-      $config = $this->config;
-      if ($page->template == 'admin') return;
+		// default config values
+		$data = array_merge(self::$defaults, $data);
 
-      // double check page's status
-      // taken from PageRender::__render()
-      if ($page->status >= Page::statusUnpublished && !$page->viewable()) {
-          throw new WirePermissionException('Page \'' . $page->url . '\' is not currently viewable.');
-      }
+		// fuel
+		$field = $modules->get("InputfieldText");
+		$field->name = 'fuel';
+		$field->label = "Auto-import fuel";
+		$field->description = "List ProcessWire fuel keys to automatically import as Twig variables" . PHP_EOL .
+		"Use comma (,) or semicolon (;) as separator - with or without spaces" . PHP_EOL .
+		"See http://processwire.com/api/variables/ for possible keys";
+		$field->size = 45;
+		$field->value = $data['fuel'];
+		$fields->append($field);
 
-      // forced replacing of default page rendering behaviour
-      $event->replace = true;
+		// cache enabled field
+		$field = $modules->get("InputfieldCheckbox");
+		$field->name = "cacheEnable";
+		$field->label = "Enable Twig Cache";
+		$field->description = "Enable Twig cache in production mode only" . PHP_EOL .
+		"Caches compiled templates, not page rendering output.";
+		$field->value = 1;
+		$field->attr('checked', empty($data['cacheEnable']) ? '' : 'checked');
+		$fields->add($field);
 
-      // look for cached data
-      // taken from PageRender::__render()
-      $options = count($parentEvent->arguments) ? $parentEvent->arguments[0] : array();
-      $defaultOptions = array(
-        'prependFile' => $page->template->noPrependTemplateFile ? null : $config->prependTemplateFile,
-        'prependFiles' => $page->template->prependFile ? array($page->template->prependFile) : array(),
-        'appendFile' => $page->template->noAppendTemplateFile ? null : $config->appendTemplateFile,
-        'appendFiles' => $page->template->appendFile ? array($page->template->appendFile) : array(),
-        'forceBuildCache' => false,
-      );
-      $options = array_merge($defaultOptions, $options);
+		// cache directory name
+		$field = $modules->get("InputfieldText");
+		$field->name = 'cacheDir';
+		$field->label = "Twig Cache Directory";
+		$field->description = "Directory name for Twig cache (relative to wire('config')->paths->cache)";
+		$field->size = 30;
+		$field->value = $data['cacheDir'];
+		$fields->append($field);
 
-      $cacheAllowed = wire('modules')->get('PageRender')->isCacheAllowed($page);
-      $cacheFile = null;
+		// cache auto reload
+		$field = $modules->get("InputfieldCheckbox");
+		$field->name = "cacheAutoReload";
+		$field->label = "Auto Reload Twig Cache";
+		$field->description = "Reload Twig cache on template modification";
+		$field->value = 1;
+		$field->attr('checked', empty($data['cacheAutoReload']) ? '' : 'checked');
+		$fields->add($field);
 
-      if ($cacheAllowed) {
-          $cacheFile = wire('modules')->get('PageRender')->getCacheFile($page);
-          if(!$options['forceBuildCache'] && ($data = $cacheFile->get()) !== false) {
-              $parentEvent->return = $data;
-              return;
-          }
-      }
+		// auto escape variables
+		$field = $modules->get("InputfieldSelect");
+		$field->name = "autoEscape";
+		$field->label = "Auto Escape Twig variables";
+		$field->description = "Automatic escape strategy for output variable content in Twig templates";
+		$field->options = array('' => '<none>', 'html' => 'html', 'html_attr' => 'html_attr');
+		$field->value = $data['autoEscape'];
+		$fields->add($field);
 
-      // allow page fields to be accessed directly in Twig
-      // e.g. {{ page.myfield }} instead of {{ page.get('myfield') }}
-      Page::$issetHas = true;
+		return $fields;
+	}
 
-      $files = $this->getPrependAppendFiles($page, $options, $config);
-      $output = $this->combineOutput($files, $page);
+	/**
+	 * Initialize the module
+	 *
+	 * Implementation of the Module interface
+	 *
+	 * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
+	 * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
+	 *
+	 * @see http://processwire.com/apigen/class-Module.html
+	 */
+	public function init() {
 
-      // cache combinedOutput if possible
-      // taken from PageRender::__render()
-      if (!empty($output) && $cacheAllowed && !is_null($cacheFile)) $cacheFile->save($output);
+		// register Twig autoloader
+		if (!class_exists('Twig_autoloader')) {
+			require_once wire('config')->paths->TemplateTwigReplace . 'Twig-1.15.0/Twig/Autoloader.php';
+			Twig_Autoloader::register();
+		}
 
-      // manually set return of original event
-      $parentEvent->return = $output;
-    }
+		// replace default page rendering by hooked method
+		$this->addHookBefore('PageRender::renderPage', $this, 'renderPageWithTwig');
 
-    /**
-     * Hook callback for ChunkController::render
-     *
-     * Kicks in if module Template Data Providers is installed.
-     * Replaces default chunk rendering entirely.
-     *
-     * @param HookEvent $event The hook event
-     * @see https://github.com/marcostoll/processwire-template-data-providers
-     */
-    public function renderChunkWithTwig(HookEvent $event) {
-      $chunkController = $event->arguments(0);
+		// replace default chunk rendering by hooked method
+		$this->addHookBefore('nw\ChunkRenderer::render', $this, 'renderChunkWithTwig');
+	}
 
-      // forced replacing of default page rendering behaviour
-      $event->replace = true;
+	/**
+	 * Hook callback for PageRender::renderPage
+	 *
+	 * Replaces default page rendering entirely.
+	 *
+	 * @param HookEvent $event The hook event
+	 * @throws WirePermissionException Page is not currently viewable.
+	 */
+	public function renderPageWithTwig(HookEvent $event) {
+		$parentEvent = $event->arguments(0); // grab event provided to PageRender::renderPage
 
-      // render template
-      $twigVars = $this->collectVariables($chunkController);
-      $output = $this->getTwig()->render($chunkController->getChunk(), $twigVars);
+		// don't mess with admin templates
+		$page = $parentEvent->object;
+		$config = $this->config;
+		if ($page->template == 'admin') return;
 
-      // manually set return of original event
-      $event->return = $output;
-    }
+		// double check page's status
+		// taken from PageRender::__render()
+		if ($page->status >= Page::statusUnpublished && !$page->viewable()) {
+			throw new WirePermissionException('Page \'' . $page->url . '\' is not currently viewable.');
+		}
 
-    /**
-     * Gather template variables from wire fuel and given $dataProvider
-     *
-     * Module config setting 'fuel' defines, which part of the wire fuel will be imported.
-     *
-     * @param WireData $dataProvider
-     * @return array
-     */
-    protected function collectVariables(WireData $dataProvider) {
-      $variables = array();
-      $fuel = preg_split('/\s*[,;]\s*/', $this->data['fuel'], - 1, PREG_SPLIT_NO_EMPTY);
-      foreach ($fuel as $key) {
-          $variables[$key] = wire($key);
-      }
+		// forced replacing of default page rendering behaviour
+		$event->replace = true;
 
-      $variables = array_merge($variables, $dataProvider->getArray());
+		// look for cached data
+		// taken from PageRender::__render()
+		$options = count($parentEvent->arguments) ? $parentEvent->arguments[0] : array();
+		$defaultOptions = array(
+			'prependFile' => $page->template->noPrependTemplateFile ? null : $config->prependTemplateFile,
+			'prependFiles' => $page->template->prependFile ? array($page->template->prependFile) : array(),
+			'appendFile' => $page->template->noAppendTemplateFile ? null : $config->appendTemplateFile,
+			'appendFiles' => $page->template->appendFile ? array($page->template->appendFile) : array(),
+			'forceBuildCache' => false,
+		);
+		$options = array_merge($defaultOptions, $options);
 
-      return $variables;
-    }
+		$cacheAllowed = wire('modules')->get('PageRender')->isCacheAllowed($page);
+		$cacheFile = null;
 
-    /**
-     * Creates the twig render engine if necessary
-     *
-     * @return Twig_Environment
-     */
-    public function getTwig() {
-      if (!is_null($this->twig)) return $this->twig;
+		if ($cacheAllowed) {
+			$cacheFile = wire('modules')->get('PageRender')->getCacheFile($page);
+			if(!$options['forceBuildCache'] && ($data = $cacheFile->get()) !== false) {
+				$parentEvent->return = $data;
+				return;
+			}
+	  }
 
-      $cache = $this->data['cacheEnable'] ? wire('config')->paths->cache . $this->data['cacheDir'] : false;
-      $loader = new Twig_Loader_Filesystem(wire('config')->paths->templates);
-      $options = array(
-        'cache'         => $cache,
-        'auto_reload'   => (boolean)$this->data['cacheAutoReload'],
-        'autoescape'    => $this->data['autoEscape'],
-        'debug'         => wire('config')->debug
-      );
+	  // allow page fields to be accessed directly in Twig
+	  // e.g. {{ page.myfield }} instead of {{ page.get('myfield') }}
+	  Page::$issetHas = true;
 
-      $this->twig = new Twig_Environment($loader, $options);
-      $this->twig->addExtension(new Twig_Extension_Debug());
+	  $files = $this->getPrependAppendFiles($page, $options, $config);
+	  $output = $this->combineOutput($files, $page);
 
-      return $this->twig;
-    }
+	  // cache combinedOutput if possible
+	  // taken from PageRender::__render()
+	  if (!empty($output) && $cacheAllowed && !is_null($cacheFile)) $cacheFile->save($output);
 
-    /**
-     * Adds prepend and append files if set
-     *
-     * @param Page $page
-     * @param array $options
-     * @param Config $config
-     * @return array
-     */
-    private function getPrependAppendFiles($page, $options, $config) {
-      // core output first to get prepend and append files working
-      $output = $page->output(true);
+	  // manually set return of original event
+	  $parentEvent->return = $output;
+	}
 
-      if ($output) {
+	/**
+	 * Hook callback for ChunkController::render
+	 *
+	 * Kicks in if module Template Data Providers is installed.
+	 * Replaces default chunk rendering entirely.
+	 *
+	 * @param HookEvent $event The hook event
+	 * @see https://github.com/marcostoll/processwire-template-data-providers
+	 */
+	public function renderChunkWithTwig(HookEvent $event) {
+		$chunkController = $event->arguments(0);
 
-        // global prepend/append include files apply only to user-defined templates, not system templates
-        if(!($page->template->flags & Template::flagSystem)) {
+	  // forced replacing of default page rendering behaviour
+		$event->replace = true;
 
-          foreach(array('prependFile' => 'prependFiles', 'appendFile' => 'appendFiles') as $singular => $plural) {
-            if ($options[$singular]) array_unshift($options[$plural], $options[$singular]);
+	  // render template
+		$twigVars = $this->collectVariables($chunkController);
+		$output = $this->getTwig()->render($chunkController->getChunk(), $twigVars);
 
-            foreach($options[$plural] as $file) {
-              if (!ctype_alnum(str_replace(array(".", "-", "_", "/"), "", $file))) continue;
-              if (strpos($file, '..') !== false || strpos($file, '/.') !== false) continue;
-              $file = $config->paths->templates . trim($file, '/');
-              if (!is_file($file)) continue;
-              if ($plural == 'prependFiles') $output->setPrependFilename($file);
-                else $output->setAppendFilename($file);
-            }
-          }
-        }
+	  // manually set return of original event
+		$event->return = $output;
+	}
 
-        // pass along the $options as a local variable to the template so that one can provide their
-        // own additional variables in it if they want to
-        $output->set('options', $options);
-      }
+	/**
+	 * Gather template variables from wire fuel and given $dataProvider
+	 *
+	 * Module config setting 'fuel' defines, which part of the wire fuel will be imported.
+	 *
+	 * @param WireData $dataProvider
+	 * @return array
+	 */
+	protected function collectVariables(WireData $dataProvider) {
+		$variables = array();
+		$fuel = preg_split('/\s*[,;]\s*/', $this->data['fuel'], - 1, PREG_SPLIT_NO_EMPTY);
+		foreach ($fuel as $key) {
+			$variables[$key] = wire($key);
+		}
 
-      $prepend = array();
-      if (count($output->prependFilename) > 0) {
-        foreach ($output->prependFilename as $file) {
-          $prepend[] = new TemplateFile($file);
-        }
-      }
+		$variables = array_merge($variables, $dataProvider->getArray());
 
-      $append = array();
-      if (count($output->appendFilename) > 0) {
-        foreach ($output->appendFilename as $file) {
-          $append[] = new TemplateFile($file);
-        }
-      }
+		return $variables;
+	}
 
-      return array('prepend' => $prepend, 'append' => $append);
-    }
+	/**
+	 * Creates the twig render engine if necessary
+	 *
+	 * @return Twig_Environment
+	 */
+	public function getTwig() {
+		if (!is_null($this->twig)) return $this->twig;
 
-    /**
-     * combine output
-     *
-     * @param array $files
-     * @param Page $page
-     */
-    private function combineOutput($files, $page) {
-      $twigVars = $this->collectVariables($page->output);
+		$cache = $this->data['cacheEnable'] ? wire('config')->paths->cache . $this->data['cacheDir'] : false;
+		$loader = new Twig_Loader_Filesystem(wire('config')->paths->templates);
+		$options = array(
+			'cache'         => $cache,
+			'auto_reload'   => (boolean)$this->data['cacheAutoReload'],
+			'autoescape'    => $this->data['autoEscape'],
+			'debug'         => wire('config')->debug
+		);
 
-      $output = '';
-      foreach ($files['prepend'] as $file) {
-        $output .= $file->render();
-      }
+		$this->twig = new Twig_Environment($loader, $options);
+		$this->twig->addExtension(new Twig_Extension_Debug());
 
-      $output .= $this->getTwig()->render($page->template->name . '.' . wire('config')->templateExtension, $twigVars);
+		return $this->twig;
+	}
 
-      foreach ($files['append'] as $file) {
-        $output .= $file->render();
-      }
+	/**
+	 * Adds prepend and append files if set
+	 *
+	 * @param Page $page
+	 * @param array $options
+	 * @param Config $config
+	 * @return array
+	 */
+	private function getPrependAppendFiles($page, $options, $config) {
+		// core output first to get prepend and append files working
+		$output = $page->output(true);
 
-      return $output;
-    }
+		if ($output) {
+
+			// global prepend/append include files apply only to user-defined templates, not system templates
+			if(!($page->template->flags & Template::flagSystem)) {
+
+				foreach(array('prependFile' => 'prependFiles', 'appendFile' => 'appendFiles') as $singular => $plural) {
+					if ($options[$singular]) array_unshift($options[$plural], $options[$singular]);
+
+					foreach($options[$plural] as $file) {
+						if (!ctype_alnum(str_replace(array(".", "-", "_", "/"), "", $file))) continue;
+						if (strpos($file, '..') !== false || strpos($file, '/.') !== false) continue;
+						$file = $config->paths->templates . trim($file, '/');
+						if (!is_file($file)) continue;
+						if ($plural == 'prependFiles') $output->setPrependFilename($file);
+						else $output->setAppendFilename($file);
+					}
+				}
+			}
+
+			// pass along the $options as a local variable to the template so that one can provide their
+			// own additional variables in it if they want to
+			$output->set('options', $options);
+		}
+
+		$prepend = array();
+		if (count($output->prependFilename) > 0) {
+			foreach ($output->prependFilename as $file) {
+				$prepend[] = new TemplateFile($file);
+			}
+		}
+
+		$append = array();
+		if (count($output->appendFilename) > 0) {
+			foreach ($output->appendFilename as $file) {
+				$append[] = new TemplateFile($file);
+			}
+		}
+
+		return array('prepend' => $prepend, 'append' => $append);
+	}
+
+	/**
+	 * combine output
+	 *
+	 * @param array $files
+	 * @param Page $page
+	 */
+	private function combineOutput($files, $page) {
+		$twigVars = $this->collectVariables($page->output);
+
+		$output = '';
+		foreach ($files['prepend'] as $file) {
+			$output .= $file->render();
+		}
+
+		$output .= $this->getTwig()->render($page->template->name . '.' . wire('config')->templateExtension, $twigVars);
+
+		foreach ($files['append'] as $file) {
+			$output .= $file->render();
+		}
+
+		return $output;
+	}
 
 }
