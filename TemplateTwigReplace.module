@@ -191,13 +191,13 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $page = $parentEvent->object;
         $config = $this->config;
 
-        if ($page->template == 'admin') return;
-
         if (array_key_exists('ignoredTemplates', $this->data)) {
           $ignoredTemplates = preg_split('/\s*[,;]\s*/', $this->data['ignoredTemplates'], - 1, PREG_SPLIT_NO_EMPTY);
-
-          if (in_array($page->template, $ignoredTemplates)) return;
+        } else {
+          $ignoredTemplates = array('admin');
         }
+
+        if (in_array($page->template, $ignoredTemplates)) return;
 
         // double check page's status
         // taken from PageRender::__render()
