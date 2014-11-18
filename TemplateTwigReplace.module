@@ -7,7 +7,7 @@
  *
  * @author Marco Stoll <marco.stoll@neuwaerts.de>
  * @author Tabea David <td@kf-interactive.com>
- * @version 1.0.6
+ * @version 1.0.8
  * @copyright Copyright (c) 2014, neuwaerts GmbH
  * @license MIT http://opensource.org/licenses/MIT
  * @filesource
@@ -52,7 +52,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
             'title' => 'Template Twig Replace',
 
             // version: major, minor, revision, i.e. 100 = 1.0.0
-            'version' => 107,
+            'version' => 108,
 
             // summary is brief description of what this module is
             'summary' => 'Use Twig template engine instead of plain-php templates',
@@ -191,9 +191,13 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $page = $parentEvent->object;
         $config = $this->config;
 
-        $ignoredTemplates = preg_split('/\s*[,;]\s*/', $this->data['ignoredTemplates'], - 1, PREG_SPLIT_NO_EMPTY);
+        if ($page->template == 'admin') return;
 
-        if (in_array($page->template, $ignoredTemplates)) return;
+        if (array_key_exists('ignoredTemplates', $this->data)) {
+          $ignoredTemplates = preg_split('/\s*[,;]\s*/', $this->data['ignoredTemplates'], - 1, PREG_SPLIT_NO_EMPTY);
+
+          if (in_array($page->template, $ignoredTemplates)) return;
+        }
 
         // double check page's status
         // taken from PageRender::__render()
