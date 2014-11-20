@@ -26,7 +26,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      */
     protected static $defaults = array(
         'fuel'              => 'page, pages, config, session, user, input',
-        'ignoredTemplates'  => 'admin, email-administrator, email-autoresponder, form-builder',
+        'ignoredTemplates'  => 'email-administrator, email-autoresponder, form-builder',
         'cacheEnable'       => false,
         'cacheDir'          => 'twig/',
         'cacheAutoReload'   => true,
@@ -52,7 +52,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
             'title' => 'Template Twig Replace',
 
             // version: major, minor, revision, i.e. 100 = 1.0.0
-            'version' => 107,
+            'version' => 109,
 
             // summary is brief description of what this module is
             'summary' => 'Use Twig template engine instead of plain-php templates',
@@ -187,13 +187,17 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
     public function renderPageWithTwig(HookEvent $event) {
         $parentEvent = $event->arguments(0); // grab event provided to PageRender::renderPage
 
-        // don't mess with admin templates
         $page = $parentEvent->object;
         $config = $this->config;
 
-        $ignoredTemplates = preg_split('/\s*[,;]\s*/', $this->data['ignoredTemplates'], - 1, PREG_SPLIT_NO_EMPTY);
+        // don't mess with admin templates
+        if($page->template == 'admin') return; 
 
-        if (in_array($page->template, $ignoredTemplates)) return;
+        // parse ignored templates if set
+        if( isset($this->data['ignoredTemplates']) && !empty($this->data['ignoredTemplates']) ) {
+            $ignoredTemplates = preg_split('/\s*[,;]\s*/', $this->data['ignoredTemplates'], - 1, PREG_SPLIT_NO_EMPTY);
+            if (in_array($page->template, $ignoredTemplates)) return;
+        }
 
         // double check page's status
         // taken from PageRender::__render()
