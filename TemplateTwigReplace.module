@@ -30,7 +30,8 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         'cacheEnable'       => false,
         'cacheDir'          => 'twig/',
         'cacheAutoReload'   => true,
-        'autoEscape'        => false
+        'autoEscape'        => false,
+        'twigVersion'       => '1.15.0',
     );
 
     /**
@@ -145,10 +146,41 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $field->options = array('' => '<none>', 'html' => 'html', 'html_attr' => 'html_attr');
         $field->value = $data['autoEscape'];
         $fields->add($field);
-
-
+        
+        // Twig version
+        $field = $modules->get("InputfieldSelect");
+        $field->name = "twigVersion";
+        $field->label = "Twig version";
+        $field->options = self::getTwigVersions();
+        $field->value = $data['twigVersion'] ? $data['twigVersion'] : self::$defaults['twigVersion'];
+        $fields->add($field);
 
         return $fields;
+    }
+    
+    /**
+     * Get available Twig versions from the module's directory and produce an
+     * assoc array, ready to be used in an InputfieldSelect
+     *
+     * @see     self::getModuleInfo
+     * @return  array
+     */
+    public static function getTwigVersions() {
+        
+        // scan module's dir
+        $moduleFiles = scandir(wire('config')->paths->TemplateTwigReplace);
+        // regex for only matching Twig dirs and getting the version number
+        $regex = '/^Twig-([0-9\.]+)$/';
+        // array to be returned
+        $rtn = array();
+        
+        foreach ($moduleFiles as $file) {
+            if (preg_match($regex, $file)) {
+                $version = preg_replace($regex, '$1', $file);
+                $rtn[$version] = $version;
+            }
+        }
+        return $rtn;
     }
 
     /**
@@ -162,10 +194,15 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      * @see http://processwire.com/apigen/class-Module.html
      */
     public function init() {
+        
+        $twigVersion =
+            $this->data['twigVersion']
+            ? $this->data['twigVersion']
+            : self::$defaults['twigVersion'];
 
         // register Twig autoloader
         if (!class_exists('Twig_autoloader')) {
-            require_once wire('config')->paths->TemplateTwigReplace . 'Twig-1.15.0/Twig/Autoloader.php';
+            require_once wire('config')->paths->TemplateTwigReplace . 'Twig-' . $twigVersion . '/Twig/Autoloader.php';
             Twig_Autoloader::register();
         }
 
