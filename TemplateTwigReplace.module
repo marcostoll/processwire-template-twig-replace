@@ -146,7 +146,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $field->options = array('' => '<none>', 'html' => 'html', 'html_attr' => 'html_attr');
         $field->value = $data['autoEscape'];
         $fields->add($field);
-        
+
         // Twig version
         $field = $modules->get("InputfieldSelect");
         $field->name = "twigVersion";
@@ -157,7 +157,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
 
         return $fields;
     }
-    
+
     /**
      * Get available Twig versions from the module's directory and produce an
      * assoc array, ready to be used in an InputfieldSelect
@@ -166,14 +166,14 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      * @return  array
      */
     public static function getTwigVersions() {
-        
+
         // scan module's dir
         $moduleFiles = scandir(wire('config')->paths->TemplateTwigReplace);
         // regex for only matching Twig dirs and getting the version number
         $regex = '/^Twig-([0-9\.]+)$/';
         // array to be returned
         $rtn = array();
-        
+
         foreach ($moduleFiles as $file) {
             if (preg_match($regex, $file)) {
                 $version = preg_replace($regex, '$1', $file);
@@ -194,9 +194,9 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      * @see http://processwire.com/apigen/class-Module.html
      */
     public function init() {
-        
+
         $twigVersion =
-            $this->data['twigVersion']
+            isset($this->data['twigVersion'])
             ? $this->data['twigVersion']
             : self::$defaults['twigVersion'];
 
@@ -228,7 +228,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $config = $this->config;
 
         // don't mess with admin templates
-        if($page->template == 'admin') return; 
+        if($page->template == 'admin') return;
 
         // parse ignored templates if set
         if( isset($this->data['ignoredTemplates']) && !empty($this->data['ignoredTemplates']) ) {
