@@ -53,7 +53,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
             'title' => 'Template Twig Replace',
 
             // version: major, minor, revision, i.e. 100 = 1.0.0
-            'version' => 109,
+            'version' => 110,
 
             // summary is brief description of what this module is
             'summary' => 'Use Twig template engine instead of plain-php templates',
@@ -415,8 +415,13 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         foreach ($files['prepend'] as $file) {
             $output .= $file->render();
         }
-
-        $output .= $this->getTwig()->render($page->template->name . '.' . wire('config')->templateExtension, $twigVars);
+        
+        $templateName =
+            $page->template->altFilename
+            ? $page->template->altFilename
+            : $page->template->name;
+        
+        $output .= $this->getTwig()->render($templateName . '.' . wire('config')->templateExtension, $twigVars);
 
         foreach ($files['append'] as $file) {
             $output .= $file->render();
