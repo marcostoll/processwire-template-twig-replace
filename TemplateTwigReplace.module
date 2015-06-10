@@ -7,7 +7,8 @@
  *
  * @author Marco Stoll <marco.stoll@neuwaerts.de>
  * @author Tabea David <td@kf-interactive.com>
- * @version 1.0.6
+ * @author Michael Braunegger <hi@michael-braunegger.de>
+ * @version 1.0.7
  * @copyright Copyright (c) 2014, neuwaerts GmbH
  * @license MIT http://opensource.org/licenses/MIT
  * @filesource
@@ -316,8 +317,9 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      */
     protected function collectVariables(WireData $dataProvider) {
         $variables = array();
-        $fuel = preg_split('/\s*[,;]\s*/', $this->data['fuel'], - 1, PREG_SPLIT_NO_EMPTY);
-        foreach ($fuel as $key) {
+        $fuel = isset($this->data['fuel']) ? $this->data['fuel'] : '';
+        $fuels = preg_split('/\s*[,;]\s*/', $fuel, - 1, PREG_SPLIT_NO_EMPTY);
+        foreach ($fuels as $key) {
             $variables[$key] = wire($key);
         }
 
@@ -334,12 +336,12 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
     public function getTwig() {
         if (!is_null($this->twig)) return $this->twig;
 
-        $cache = $this->data['cacheEnable'] ? wire('config')->paths->cache . $this->data['cacheDir'] : false;
+        $cache = (isset($this->data['cacheEnable']) && $this->data['cacheEnable']) ? wire('config')->paths->cache . $this->data['cacheDir'] : false;
         $loader = new Twig_Loader_Filesystem(wire('config')->paths->templates);
         $options = array(
             'cache'         => $cache,
-            'auto_reload'   => (boolean)$this->data['cacheAutoReload'],
-            'autoescape'    => $this->data['autoEscape'],
+            'auto_reload'   => isset($this->data['cacheAutoReload']) ? (boolean)$this->data['cacheAutoReload'] : '',
+            'autoescape'    => isset($this->data['autoEscape']) ? $this->data['autoEscape'] : '',
             'debug'         => wire('config')->debug
         );
 
