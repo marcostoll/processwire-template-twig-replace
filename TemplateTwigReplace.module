@@ -316,9 +316,8 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      */
     protected function collectVariables(WireData $dataProvider) {
         $variables = array();
-        $fuel = isset($this->data['fuel']) ? $this->data['fuel'] : '';
-        $fuels = preg_split('/\s*[,;]\s*/', $fuel, - 1, PREG_SPLIT_NO_EMPTY);
-        foreach ($fuels as $key) {
+        $fuel = preg_split('/\s*[,;]\s*/', $this->data['fuel'], - 1, PREG_SPLIT_NO_EMPTY);
+        foreach ($fuel as $key) {
             $variables[$key] = wire($key);
         }
 
@@ -335,12 +334,12 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
     public function getTwig() {
         if (!is_null($this->twig)) return $this->twig;
 
-        $cache = (isset($this->data['cacheEnable']) && $this->data['cacheEnable']) ? wire('config')->paths->cache . $this->data['cacheDir'] : false;
+        $cache = $this->data['cacheEnable'] ? wire('config')->paths->cache . $this->data['cacheDir'] : false;
         $loader = new Twig_Loader_Filesystem(wire('config')->paths->templates);
         $options = array(
             'cache'         => $cache,
-            'auto_reload'   => isset($this->data['cacheAutoReload']) ? (boolean)$this->data['cacheAutoReload'] : '',
-            'autoescape'    => isset($this->data['autoEscape']) ? $this->data['autoEscape'] : '',
+            'auto_reload'   => (boolean)$this->data['cacheAutoReload'],
+            'autoescape'    => $this->data['autoEscape'],
             'debug'         => wire('config')->debug
         );
 
