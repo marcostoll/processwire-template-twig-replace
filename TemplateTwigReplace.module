@@ -7,7 +7,8 @@
  *
  * @author Marco Stoll <marco.stoll@neuwaerts.de>
  * @author Tabea David <td@kf-interactive.com>
- * @version 1.0.6
+ * @author Christian Raunitschka <git@raunitschka.de>
+ * @version 1.2.0
  * @copyright Copyright (c) 2014, neuwaerts GmbH
  * @license MIT http://opensource.org/licenses/MIT
  * @filesource
@@ -26,7 +27,8 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      */
     protected static $defaults = array(
         'fuel'              => 'page, pages, config, session, user, input',
-        'ignoredTemplates'  => 'email-administrator, email-autoresponder, form-builder',
+        'ignoredTemplates'  => array('email-administrator', 'email-autoresponder', 'form-builder'),
+        'allowedTemplates'  => array(),
         'cacheEnable'       => false,
         'cacheDir'          => 'twig/',
         'cacheAutoReload'   => true,
@@ -52,9 +54,8 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
             // The module'ss title, typically a little more descriptive than the class name
             'title' => 'Template Twig Replace',
 
-            // version: major, minor, revision, i.e. 100 = 1.0.0
-            'version' => 110,
-            'version' => 111,
+            // version: major, minor, revision
+            'version' => '1.2.0',
 
             // summary is brief description of what this module is
             'summary' => 'Use Twig template engine instead of plain-php templates',
@@ -71,6 +72,9 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
             // hooks won't get attached unless some other code calls the module on it's own.
             // Note that autoload modules are almost always also 'singular' (seen above).
             'autoload' => true,
+
+            // ProcessWire 2.5.5 for InputfieldWrapper->add(array()) feature
+            'requires' => array('PHP>=5.4','ProcessWire>=2.5.5'),
         );
     }
 
@@ -87,76 +91,110 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         $fields = new InputfieldWrapper();
         $modules = wire('modules');
 
-        // default config values
+        // Default config values
         $data = array_merge(self::$defaults, $data);
 
-        // fuel
-        $field = $modules->get("InputfieldText");
-        $field->name = 'fuel';
-        $field->label = "Auto-import fuel";
-        $field->description = "List ProcessWire fuel keys to automatically import as Twig variables" . PHP_EOL .
-        "Use comma (,) or semicolon (;) as separator - with or without spaces" . PHP_EOL .
-        "See http://processwire.com/api/variables/ for possible keys";
-        $field->size = 45;
-        $field->value = $data['fuel'];
-        $fields->append($field);
+        $fields->add(array(
 
-        // ignored templates
-        $field = $modules->get("InputfieldText");
-        $field->name = 'ignoredTemplates';
-        $field->label = "Don't use Twig for these templates";
-        $field->description = "A list of templates  (i.e admin or Formbuilder templates) that shouldn't be rendered with twig" . PHP_EOL .
-        "Use comma (,) or semicolon (;) as separator - with or without spaces";
-        $field->size = 45;
-        $field->value = $data['ignoredTemplates'];
-        $fields->append($field);
+            // Fuel
+            array(
+                'type'        => 'InputfieldText',
+                'name'        => 'fuel',
+                'label'       => 'Auto-import fuel',
+                'description' => implode(PHP_EOL, array(
+                    'List ProcessWire fuel keys to automatically import as Twig variables',
+                    'Use comma (,) or semicolon (,) as separator - with or without spaces',
+                    'See http://processwire.com/api/variables/ for possible keys',
+                )),
+                'size'        => 45,
+                'value'       => $data['fuel'],
+            ),
 
-        // cache enabled field
-        $field = $modules->get("InputfieldCheckbox");
-        $field->name = "cacheEnable";
-        $field->label = "Enable Twig Cache";
-        $field->description = "Enable Twig cache in production mode only" . PHP_EOL .
-        "Caches compiled templates, not page rendering output.";
-        $field->value = 1;
-        $field->attr('checked', empty($data['cacheEnable']) ? '' : 'checked');
-        $fields->add($field);
+            // Ignored templates
+            array(
+                'type'        => 'InputfieldAsmSelect',
+                'name'        => 'ignoredTemplates',
+                'label'       => 'Don’t use Twig for these templates',
+                'description' => 'Templates that shouldn’t be rendered with twig',
+                'size'        => 45,
+                'options'     => self::getSelectTemplates(),
+                'value'       => $data['ignoredTemplates'],
+            ),
 
-        // cache directory name
-        $field = $modules->get("InputfieldText");
-        $field->name = 'cacheDir';
-        $field->label = "Twig Cache Directory";
-        $field->description = "Directory name for Twig cache (relative to wire('config')->paths->cache)";
-        $field->size = 30;
-        $field->value = $data['cacheDir'];
-        $fields->append($field);
+            // Allowed Templates
+            array(
+                'type'        => 'InputfieldAsmSelect',
+                'name'        => 'allowedTemplates',
+                'label'       => 'Allowed Templates',
+                'description' => 'If not empty, only these templates will be used to be rendered with twig',
+                'options'     => self::getSelectTemplates(),
+                'value'       => $data['allowedTemplates'],
+            ),
 
-        // cache auto reload
-        $field = $modules->get("InputfieldCheckbox");
-        $field->name = "cacheAutoReload";
-        $field->label = "Auto Reload Twig Cache";
-        $field->description = "Reload Twig cache on template modification";
-        $field->value = 1;
-        $field->attr('checked', empty($data['cacheAutoReload']) ? '' : 'checked');
-        $fields->add($field);
+            // Enable Twig Cache
+            array(
+                'type'        => 'InputfieldCheckbox',
+                'name'        => "cacheEnable",
+                'label'       => "Enable Twig Cache",
+                'description' => implode(PHP_EOL, array(
+                    'Enable Twig cache in production mode only',
+                    'Caches compiled templates, not page rendering output.',
+                )),
+                'value'       => 1,
+                'checked'     => empty($data['cacheEnable']) ? '' : 'checked',
+            ),
 
-        // auto escape variables
-        $field = $modules->get("InputfieldSelect");
-        $field->name = "autoEscape";
-        $field->label = "Auto Escape Twig variables";
-        $field->description = "Automatic escape strategy for output variable content in Twig templates";
-        $field->options = array('' => '<none>', 'html' => 'html', 'html_attr' => 'html_attr');
-        $field->value = $data['autoEscape'];
-        $fields->add($field);
+            // Twig Cache Directory
+            array(
+                'type'        => 'InputfieldText',
+                'name'        => 'cacheDir',
+                'label'       => 'Twig Cache Directory',
+                'description' => 'Directory name for Twig cache (relative to wire("config")->paths->cache)',
+                'size'        => 30,
+                'value'       => $data['cacheDir'],
+            ),
 
-        // Twig version
-        $field = $modules->get("InputfieldSelect");
-        $field->name = "twigVersion";
-        $field->label = "Twig version";
-        $field->options = self::getTwigVersions();
-        $field->value = $data['twigVersion'] ? $data['twigVersion'] : self::$defaults['twigVersion'];
-        $fields->add($field);
+            // Auto Reload Twig Cache
+            array(
+                'type'        => 'InputfieldCheckbox',
+                'name'        => 'cacheAutoReload',
+                'label'       => 'Auto Reload Twig Cache',
+                'description' => 'Reload Twig cache on template modification',
+                'value'       => 1,
+                'checked'     => empty($data['cacheAutoReload']) ? '' : 'checked',
+            ),
+
+            // Auto Escape Twig variables
+            array(
+                'type'        => 'InputfieldSelect',
+                'name'        => 'autoEscape',
+                'label'       => 'Auto Escape Twig variables',
+                'description' => 'Automatic escape strategy for output variable content in Twig templates',
+                'options'     => array('' => '<none>', 'html' => 'html', 'html_attr' => 'html_attr'),
+                'value'       => $data['autoEscape'],
+            ),
+
+            // Twig version
+            array(
+                'type'        => 'InputfieldSelect',
+                'name'        => 'twigVersion',
+                'label'       => 'Twig version',
+                'options'     => self::getTwigVersions(),
+                'value'       => $data['twigVersion'],
+            ),
+        ));
 
         return $fields;
+    }
+
+    protected static function getSelectTemplates() {
+        $tpls = array();
+        foreach (wire('templates') as $t) {
+            if(!($t->flags & Template::flagSystem)) {
+                $tpls[$t->name] = $t->name;
+            }
+        }
+        return $tpls;
     }
 
     /**
@@ -235,10 +273,18 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         // don't mess with admin templates
         if($page->template == 'admin') return;
 
-        // parse ignored templates if set
-        if( isset($this->data['ignoredTemplates']) && !empty($this->data['ignoredTemplates']) ) {
-            $ignoredTemplates = preg_split('/\s*[,;]\s*/', $this->data['ignoredTemplates'], - 1, PREG_SPLIT_NO_EMPTY);
-            if (in_array($page->template, $ignoredTemplates)) return;
+        // Default config values
+        $data = array_merge(self::$defaults, $this->data);
+
+        $ignoredTemplates = $data['ignoredTemplates'];
+        $allowedTemplates = $data['allowedTemplates'];
+
+        if (count($allowedTemplates)) {
+            // If ignored templates are set, only take them in account
+            if (!in_array($page->template, $allowedTemplates)) return;
+        } else {
+            // If not, all templates but the ignored ones are allowed
+            if (in_array($page->template, $allowedTemplates)) return;
         }
 
         // double check page's status
@@ -271,21 +317,21 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
                 $parentEvent->return = $data;
                 return;
             }
-      }
+        }
 
-      // allow page fields to be accessed directly in Twig
-      // e.g. {{ page.myfield }} instead of {{ page.get('myfield') }}
-      Page::$issetHas = true;
+        // allow page fields to be accessed directly in Twig
+        // e.g. {{ page.myfield }} instead of {{ page.get('myfield') }}
+        Page::$issetHas = true;
 
-      $files = $this->getPrependAppendFiles($page, $options, $config);
-      $output = $this->combineOutput($files, $page);
+        $files = $this->getPrependAppendFiles($page, $options, $config);
+        $output = $this->combineOutput($files, $page);
 
-      // cache combinedOutput if possible
-      // taken from PageRender::__render()
-      if (!empty($output) && $cacheAllowed && !is_null($cacheFile)) $cacheFile->save($output);
+        // cache combinedOutput if possible
+        // taken from PageRender::__render()
+        if (!empty($output) && $cacheAllowed && !is_null($cacheFile)) $cacheFile->save($output);
 
-      // manually set return of original event
-      $parentEvent->return = $output;
+        // manually set return of original event
+        $parentEvent->return = $output;
     }
 
     /**
@@ -420,12 +466,12 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         foreach ($files['prepend'] as $file) {
             $output .= $file->render();
         }
-        
+
         $templateName =
             $page->template->altFilename
             ? $page->template->altFilename
             : $page->template->name;
-        
+
         $output .= $this->getTwig()->render($templateName . '.' . wire('config')->templateExtension, $twigVars);
 
         foreach ($files['append'] as $file) {
