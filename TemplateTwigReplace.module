@@ -54,6 +54,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
 
             // version: major, minor, revision, i.e. 100 = 1.0.0
             'version' => 110,
+            'version' => 111,
 
             // summary is brief description of what this module is
             'summary' => 'Use Twig template engine instead of plain-php templates',
@@ -211,6 +212,10 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
 
         // replace default chunk rendering by hooked method
         $this->addHookBefore('nw\ChunkRenderer::render', $this, 'renderChunkWithTwig');
+        // Make this compatible with PW3, when this bug is still present:
+        // https://github.com/processwire/processwire-issues/issues/109
+        $this->addHookBefore('ChunkRenderer::render', $this, 'renderChunkWithTwig');
+
     }
 
     /**
