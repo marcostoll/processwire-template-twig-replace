@@ -41,6 +41,15 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      */
     protected $twig = null;
 
+
+    public function __construct()
+    {
+        parent::__construct();
+        foreach (self::$defaults as $key => $value) {
+            $this->set($key, $value);
+        }
+    }
+
     /**
      * Retrieves module meta data
      *
@@ -55,7 +64,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
             'title' => 'Template Twig Replace',
 
             // version: major, minor, revision
-            'version' => '1.2.1',
+            'version' => '1.2.2',
 
             // summary is brief description of what this module is
             'summary' => 'Use Twig template engine instead of plain-php templates',
@@ -234,14 +243,9 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      */
     public function init() {
 
-        $twigVersion =
-            isset($this->data['twigVersion'])
-            ? $this->data['twigVersion']
-            : self::$defaults['twigVersion'];
-
         // register Twig autoloader
         if (!class_exists('Twig_autoloader')) {
-            require_once $this->config->paths->TemplateTwigReplace . 'Twig-' . $twigVersion . '/Twig/Autoloader.php';
+            require_once $this->config->paths->TemplateTwigReplace . 'Twig-' . $this->twigVersion . '/Twig/Autoloader.php';
             Twig_Autoloader::register();
         }
 
@@ -273,18 +277,12 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         // don't mess with admin templates
         if($page->template == 'admin') return;
 
-        // Default config values
-        $data = array_merge(self::$defaults, $this->data);
-
-        $ignoredTemplates = $data['ignoredTemplates'];
-        $allowedTemplates = $data['allowedTemplates'];
-
-        if (count($allowedTemplates)) {
+        if (count($this->allowedTemplates)) {
             // If ignored templates are set, only take them in account
-            if (!in_array($page->template, $allowedTemplates)) return;
+            if (!in_array($page->template, $this->allowedTemplates)) return;
         } else {
             // If not, all templates but the ignored ones are allowed
-            if (in_array($page->template, $allowedTemplates)) return;
+            if (in_array($page->template, $this->ignoredTemplates)) return;
         }
 
         // double check page's status
@@ -367,7 +365,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      */
     protected function collectVariables(WireData $dataProvider) {
         $variables = array();
-        $fuel = preg_split('/\s*[,;]\s*/', $this->data['fuel'], - 1, PREG_SPLIT_NO_EMPTY);
+        $fuel = preg_split('/\s*[,;]\s*/', $this->fuel, - 1, PREG_SPLIT_NO_EMPTY);
         foreach ($fuel as $key) {
             $variables[$key] = wire($key);
         }
@@ -385,12 +383,12 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
     public function getTwig() {
         if (!is_null($this->twig)) return $this->twig;
 
-        $cache = $this->data['cacheEnable'] ? $this->config->paths->cache . $this->data['cacheDir'] : false;
+        $cache = $this->cacheEnable ? $this->config->paths->cache . $this->cacheDir : false;
         $loader = new Twig_Loader_Filesystem($this->config->paths->templates);
         $options = array(
             'cache'         => $cache,
-            'auto_reload'   => (boolean)$this->data['cacheAutoReload'],
-            'autoescape'    => $this->data['autoEscape'],
+            'auto_reload'   => (boolean) $this->cacheAutoReload,
+            'autoescape'    => $this->autoEscape,
             'debug'         => $this->config->debug
         );
 
