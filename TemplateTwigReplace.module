@@ -8,7 +8,7 @@
  * @author Marco Stoll <marco.stoll@neuwaerts.de>
  * @author Tabea David <td@kf-interactive.com>
  * @author Christian Raunitschka <git@raunitschka.de>
- * @version 1.2.0
+ * @version 1.2.1
  * @copyright Copyright (c) 2014, neuwaerts GmbH
  * @license MIT http://opensource.org/licenses/MIT
  * @filesource
@@ -55,7 +55,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
             'title' => 'Template Twig Replace',
 
             // version: major, minor, revision
-            'version' => '1.2.0',
+            'version' => '1.2.1',
 
             // summary is brief description of what this module is
             'summary' => 'Use Twig template engine instead of plain-php templates',
@@ -241,7 +241,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
 
         // register Twig autoloader
         if (!class_exists('Twig_autoloader')) {
-            require_once wire('config')->paths->TemplateTwigReplace . 'Twig-' . $twigVersion . '/Twig/Autoloader.php';
+            require_once $this->config->paths->TemplateTwigReplace . 'Twig-' . $twigVersion . '/Twig/Autoloader.php';
             Twig_Autoloader::register();
         }
 
@@ -308,11 +308,11 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         );
         $options = array_merge($defaultOptions, $options);
 
-        $cacheAllowed = wire('modules')->get('PageRender')->isCacheAllowed($page);
+        $cacheAllowed = $this->modules->get('PageRender')->isCacheAllowed($page);
         $cacheFile = null;
 
         if ($cacheAllowed) {
-            $cacheFile = wire('modules')->get('PageRender')->getCacheFile($page);
+            $cacheFile = $this->modules->get('PageRender')->getCacheFile($page);
             if(!$options['forceBuildCache'] && ($data = $cacheFile->get()) !== false) {
                 $parentEvent->return = $data;
                 return;
@@ -385,13 +385,13 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
     public function getTwig() {
         if (!is_null($this->twig)) return $this->twig;
 
-        $cache = $this->data['cacheEnable'] ? wire('config')->paths->cache . $this->data['cacheDir'] : false;
-        $loader = new Twig_Loader_Filesystem(wire('config')->paths->templates);
+        $cache = $this->data['cacheEnable'] ? $this->config->paths->cache . $this->data['cacheDir'] : false;
+        $loader = new Twig_Loader_Filesystem($this->config->paths->templates);
         $options = array(
             'cache'         => $cache,
             'auto_reload'   => (boolean)$this->data['cacheAutoReload'],
             'autoescape'    => $this->data['autoEscape'],
-            'debug'         => wire('config')->debug
+            'debug'         => $this->config->debug
         );
 
         $this->twig = new Twig_Environment($loader, $options);
@@ -472,7 +472,7 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
             ? $page->template->altFilename
             : $page->template->name;
 
-        $output .= $this->getTwig()->render($templateName . '.' . wire('config')->templateExtension, $twigVars);
+        $output .= $this->getTwig()->render($templateName . '.' . $this->config->templateExtension, $twigVars);
 
         foreach ($files['append'] as $file) {
             $output .= $file->render();
