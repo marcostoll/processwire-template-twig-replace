@@ -8,7 +8,7 @@
  * @author Marco Stoll <marco.stoll@neuwaerts.de>
  * @author Tabea David <td@kf-interactive.com>
  * @author Christian Raunitschka <git@raunitschka.de>
- * @version 1.2.2
+ * @version 1.3.0
  * @copyright Copyright (c) 2014, neuwaerts GmbH
  * @license MIT http://opensource.org/licenses/MIT
  * @filesource
@@ -33,7 +33,6 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
         'cacheDir'          => 'twig/',
         'cacheAutoReload'   => true,
         'autoEscape'        => false,
-        'twigVersion'       => '1.15.0',
     );
 
     /**
@@ -182,15 +181,6 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
                 'options'     => array('' => '<none>', 'html' => 'html', 'html_attr' => 'html_attr'),
                 'value'       => $data['autoEscape'],
             ),
-
-            // Twig version
-            array(
-                'type'        => 'InputfieldSelect',
-                'name'        => 'twigVersion',
-                'label'       => 'Twig version',
-                'options'     => self::getTwigVersions(),
-                'value'       => $data['twigVersion'],
-            ),
         ));
 
         return $fields;
@@ -207,31 +197,6 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
     }
 
     /**
-     * Get available Twig versions from the module's directory and produce an
-     * assoc array, ready to be used in an InputfieldSelect
-     *
-     * @see     self::getModuleInfo
-     * @return  array
-     */
-    public static function getTwigVersions() {
-
-        // scan module's dir
-        $moduleFiles = scandir(wire('config')->paths->TemplateTwigReplace);
-        // regex for only matching Twig dirs and getting the version number
-        $regex = '/^Twig-([0-9\.]+)$/';
-        // array to be returned
-        $rtn = array();
-
-        foreach ($moduleFiles as $file) {
-            if (preg_match($regex, $file)) {
-                $version = preg_replace($regex, '$1', $file);
-                $rtn[$version] = $version;
-            }
-        }
-        return $rtn;
-    }
-
-    /**
      * Initialize the module
      *
      * Implementation of the Module interface
@@ -242,12 +207,6 @@ class TemplateTwigReplace extends WireData implements Module, ConfigurableModule
      * @see http://processwire.com/apigen/class-Module.html
      */
     public function init() {
-
-        // register Twig autoloader
-        if (!class_exists('Twig_autoloader')) {
-            require_once $this->config->paths->TemplateTwigReplace . 'Twig-' . $this->twigVersion . '/Twig/Autoloader.php';
-            Twig_Autoloader::register();
-        }
 
         // replace default page rendering by hooked method
         $this->addHookBefore('PageRender::renderPage', $this, 'renderPageWithTwig');
